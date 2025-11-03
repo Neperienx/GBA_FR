@@ -1,0 +1,41 @@
+# Copy this file to `config.toml` and adjust the paths/macros to match your setup.
+
+[bridge]
+host = "127.0.0.1"
+port = 8765
+
+[emulator]
+enabled = true
+path = "C:\\BizHawk\\EmuHawk.exe"
+rom = "C:\\BizHawk\\GBA\\Pokemon - Version Rouge Feu (France).gba"
+lua_source = "lua/automation_bridge.lua"
+lua_destination = "C:\\BizHawk\\Lua\\automation_bridge.lua"
+working_directory = "C:\\BizHawk"
+extra_args = ["--gdi"]
+copy_lua = true
+apply_bridge_args = true
+boot_wait_seconds = 2.0
+
+[bot]
+log_path = "logs/encounters.log"
+poll_interval = 0.05
+connect_timeout = 30.0
+connect_retry_interval = 1.0
+pp_threshold = 4
+pp_recovery_moves = [0]
+
+[[bot.to_grass_macro]]
+duration = 60
+buttons = ["UP"]
+
+[[bot.to_grass_macro]]
+duration = 20
+buttons = ["RIGHT"]
+
+[[bot.to_center_macro]]
+duration = 20
+buttons = ["LEFT"]
+
+[[bot.to_center_macro]]
+duration = 60
+buttons = ["DOWN"]
