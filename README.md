@@ -33,7 +33,33 @@ We split responsibilities between **Lua (inside emulator)** and **Python (extern
 
 ## 🛠️ Getting Started
 
-### 1. Prepare the Emulator
+### 1. Install Python and Create an Isolated Environment
+
+1. Install **Python 3.12.x** (3.12.6 is confirmed to work). If you already have Python 3.12 available, you can skip this step.
+2. Open a terminal (PowerShell on Windows, Terminal on macOS/Linux) and move into the project directory:
+   ```bash
+   cd /path/to/GBA_FR
+   ```
+3. Create a virtual environment so that the project has its own copy of Python and packages:
+   ```bash
+   python3.12 -m venv .venv
+   ```
+   - On Windows you can also run `py -3.12 -m venv .venv`.
+4. Activate the environment:
+   - **macOS/Linux:** `source .venv/bin/activate`
+   - **Windows (PowerShell):** `.venv\\Scripts\\Activate.ps1`
+5. Upgrade `pip` and install the project requirements:
+   ```bash
+   python -m pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+   The project currently relies only on Python's standard library, but the `requirements.txt` file is provided so you can track
+   future dependencies and install them with a single command if they are added later.
+
+When the environment is active your prompt will usually show `(.venv)` in front of it. Run `deactivate` to leave the
+environment when you are done working on the project.
+
+### 2. Prepare the Emulator
 
 1. Use the latest nightly build of [mGBA](https://mgba.io/) (or another emulator with Lua + socket support).
 2. Load your Pokémon Fire Red ROM (v1.0 is expected by the memory map).
@@ -41,21 +67,35 @@ We split responsibilities between **Lua (inside emulator)** and **Python (extern
    - The script opens a TCP server on `127.0.0.1:8765` and streams game state once per frame.
    - Make sure no firewall blocks the port.
 
-### 2. Install Python Dependencies
+### 3. Configure the Bot Step by Step
 
-The project currently has no external dependencies.  Any Python 3.10+ interpreter should work.
+1. Review the default configuration in [`scripts/run_bot.py`](scripts/run_bot.py).
+2. Update the walking macros so they match the layout of your PokéCenter and hunting location.
+   - Each `MacroStep` defines how many frames to hold a set of buttons. For example, `MacroStep(duration=45, buttons=["UP"])`
+     holds the UP button for 45 frames.
+   - The `to_grass_macro` should walk from the PokéCenter doorway to the grass patch. The `to_center_macro` should trace the
+     route back for healing.
+3. Adjust additional options in `BotConfig` if necessary:
+   - `host` and `port` must match the values printed by the Lua script in the emulator.
+   - `encounter_log_path` controls where encounter logs are saved.
+   - `pp_threshold` and `pp_recovery_moves` decide when the bot should return to heal.
+4. (Optional) Create a custom script if you prefer a different automation flow. Import `BotConfig`, `MgbaBridge`, and
+   `ShinyHunterBot` from the `automation` package and follow the example in this README.
 
-### 3. Run the Automation Bot
+### 4. Run the Automation Bot
 
 ```bash
 python scripts/run_bot.py --log logs/encounters.log
 ```
 
-The CLI creates a default configuration with placeholder macros for walking between the PokéCenter and the grass patch.  Adjust the durations and button combinations in `scripts/run_bot.py` to match your setup.
+The CLI creates a default configuration with placeholder macros for walking between the PokéCenter and the grass patch. Adjust
+the durations and button combinations in `scripts/run_bot.py` to match your setup. The script prints status messages while it is
+running so you can confirm that a connection to the emulator has been established.
 
-### 4. Configure Movement Macros
+### 5. Configure Movement Macros Programmatically
 
-Macros are sequences of button presses with a frame duration.  You can customize them either by editing `scripts/run_bot.py` or instantiating `BotConfig` manually in a bespoke script.  Example:
+Macros are sequences of button presses with a frame duration. You can customize them either by editing `scripts/run_bot.py` or
+instantiating `BotConfig` manually in a bespoke script. Example:
 
 ```python
 from automation import BotConfig, MgbaBridge, ShinyHunterBot, EncounterLogger
@@ -78,9 +118,9 @@ bot = ShinyHunterBot(bridge, config, logger)
 bot.start()
 ```
 
-### 5. Encounter Logging
+### 6. Encounter Logging
 
-Every encounter is appended to `logs/encounters.log` with timestamp, encounter count, species, IDs, and whether it was shiny.  Use this file to track hunt statistics.
+Every encounter is appended to `logs/encounters.log` with timestamp, encounter count, species, IDs, and whether it was shiny. Use this file to track hunt statistics.
 
 ---
 

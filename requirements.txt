@@ -1,0 +1,2 @@
+# This project currently uses only Python's standard library.
+# The file is provided for convenience and future dependency tracking.
