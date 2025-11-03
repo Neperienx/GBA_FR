@@ -11,31 +11,37 @@ frame-long button presses or macros (a list of button presses with a
 fixed duration for each step).
 ]]
 
-local ok_socket, socket = pcall(require, "socket")
-if not ok_socket or not socket then
+local function try_comm_socket_shim()
     local comm = rawget(_G, "comm")
     if not comm then
-        error("LuaSocket module not found and BizHawk comm API unavailable. Please enable one of them.")
+        return nil, "BizHawk comm API unavailable"
     end
 
-    local function ensure(fn, name)
-        if not fn then
-            error("BizHawk comm API is missing `" .. name .. "`")
+    local function pick(...)
+        for i = 1, select("#", ...) do
+            local name = select(i, ...)
+            local fn = comm[name]
+            if fn then
+                return fn
+            end
         end
-        return fn
+        return nil
     end
 
-    local socketServerOpen = ensure(comm.socketServerOpen, "socketServerOpen")
-    local socketServerClose = ensure(comm.socketServerClose, "socketServerClose")
-    local socketServerIsConnected = ensure(comm.socketServerIsConnected, "socketServerIsConnected")
-    local socketServerSend = ensure(comm.socketServerSend, "socketServerSend")
-    local socketServerPeek = ensure(comm.socketServerPeek, "socketServerPeek")
-    local socketServerReceive = comm.socketServerReceive
+    local socketServerOpen = pick("socketServerOpen", "socketServerStart", "socketServerListen")
+    local socketServerClose = pick("socketServerClose", "socketServerStop")
+    local socketServerIsConnected = pick("socketServerIsConnected", "socketServerConnected")
+    local socketServerSend = pick("socketServerSend", "socketServerSendLine", "socketServerSendText")
+    local socketServerPeek = pick("socketServerPeek", "socketServerReceive", "socketServerRead")
+    local socketServerReceive = pick("socketServerReceive", "socketServerRecv", "socketServerReadLine")
 
-    socket = {}
+    if not (socketServerOpen and socketServerClose and socketServerIsConnected and socketServerSend and socketServerPeek) then
+        return nil, "BizHawk comm API is missing socket server helpers"
+    end
 
-    function socket.bind(host, port)
-        -- BizHawk listens on all interfaces, but this keeps the call signature consistent.
+    local shim = {}
+
+    function shim.bind(_, port)
         socketServerClose()
         socketServerOpen(port)
 
@@ -127,6 +133,204 @@ if not ok_socket or not socket then
         end
 
         return server
+    end
+
+    return shim
+end
+
+local function try_luanet_socket_shim()
+    local ok_luanet, luanet = pcall(require, "luanet")
+    if not ok_luanet or not luanet then
+        return nil, "luanet module unavailable"
+    end
+
+    local ok_load, load_err = pcall(luanet.load_assembly, "System")
+    if not ok_load then
+        return nil, load_err or "failed to load System assembly"
+    end
+
+    local IPAddress = luanet.import_type("System.Net.IPAddress")
+    local TcpListener = luanet.import_type("System.Net.Sockets.TcpListener")
+    local LingerOption = luanet.import_type("System.Net.Sockets.LingerOption")
+    local Encoding = luanet.import_type("System.Text.Encoding")
+    local Byte = luanet.import_type("System.Byte")
+
+    if not (IPAddress and TcpListener and LingerOption and Encoding and Byte) then
+        return nil, "required .NET networking types unavailable"
+    end
+
+    local encoding = Encoding.UTF8
+
+    local function to_ip(host)
+        if host == "*" or host == "0.0.0.0" then
+            return IPAddress.Any
+        end
+
+        local ok_parse, parsed = pcall(IPAddress.Parse, host)
+        if ok_parse and parsed then
+            return parsed
+        end
+
+        return IPAddress.Loopback
+    end
+
+    local shim = {}
+
+    function shim.bind(host, port)
+        local listener = TcpListener(to_ip(host or "127.0.0.1"), port)
+        listener:Start()
+        listener.Server.Blocking = false
+
+        local server = {
+            _listener = listener,
+            _client = nil,
+            _stream = nil,
+            _buffer = ""
+        }
+
+        local function reset_client()
+            if server._stream then
+                server._stream:Close()
+                server._stream = nil
+            end
+            if server._client then
+                server._client:Close()
+                server._client = nil
+            end
+            server._client_wrapper = nil
+            server._buffer = ""
+        end
+
+        function server:settimeout(_)
+            -- Handled by returning "timeout" when no data is currently buffered.
+        end
+
+        function server:accept()
+            if server._client and server._client.Connected then
+                return server._client_wrapper
+            elseif server._client then
+                reset_client()
+            end
+
+            local pending = false
+            local ok_pending, pending_result = pcall(server._listener.Pending, server._listener)
+            if ok_pending then
+                pending = pending_result
+            end
+
+            if not pending then
+                return nil
+            end
+
+            local ok_accept, client = pcall(server._listener.AcceptTcpClient, server._listener)
+            if not ok_accept or not client then
+                return nil
+            end
+
+            client.NoDelay = true
+            client.LingerState = LingerOption(false, 0)
+            client.ReceiveTimeout = 0
+            client.SendTimeout = 0
+
+            local stream = client:GetStream()
+            stream.ReadTimeout = 1
+            stream.WriteTimeout = 1
+
+            server._client = client
+            server._stream = stream
+            server._buffer = ""
+
+            local wrapper = {}
+
+            function wrapper:settimeout(_)
+            end
+
+            function wrapper:close()
+                reset_client()
+            end
+
+            function wrapper:send(payload)
+                if not server._client or not server._client.Connected then
+                    reset_client()
+                    return nil, "closed"
+                end
+
+                local bytes = encoding:GetBytes(payload)
+                local ok_write = pcall(function()
+                    stream:Write(bytes, 0, bytes.Length)
+                    stream:Flush()
+                end)
+
+                if not ok_write then
+                    reset_client()
+                    return nil, "closed"
+                end
+
+                return true
+            end
+
+            function wrapper:receive(pattern)
+                if pattern ~= "*l" then
+                    error("BizHawk luanet socket shim only supports receive pattern '*l'")
+                end
+
+                while true do
+                    if not server._client or not server._client.Connected then
+                        reset_client()
+                        return nil, "closed"
+                    end
+
+                    local newline = server._buffer:find("\n", 1, true)
+                    if newline then
+                        local line = server._buffer:sub(1, newline - 1)
+                        server._buffer = server._buffer:sub(newline + 1)
+                        return line
+                    end
+
+                    local available = server._client.Available
+                    if available == 0 then
+                        return nil, "timeout"
+                    end
+
+                    local buffer = luanet.make_array(Byte, available)
+                    local read = stream:Read(buffer, 0, available)
+                    if read == 0 then
+                        reset_client()
+                        return nil, "closed"
+                    end
+
+                    local chunk = encoding:GetString(buffer, 0, read)
+                    server._buffer = server._buffer .. chunk
+                end
+            end
+
+            server._client_wrapper = wrapper
+            return wrapper
+        end
+
+        function server:close()
+            reset_client()
+            server._listener:Stop()
+        end
+
+        return server
+    end
+
+    return shim
+end
+
+local ok_socket, socket = pcall(require, "socket")
+if not ok_socket or not socket then
+    local comm_socket, comm_err = try_comm_socket_shim()
+    if comm_socket then
+        socket = comm_socket
+    else
+        local luanet_socket, luanet_err = try_luanet_socket_shim()
+        if luanet_socket then
+            socket = luanet_socket
+        else
+            error(luanet_err or comm_err or "LuaSocket module not found and BizHawk comm API unavailable. Please enable one of them.")
+        end
     end
 end
 local event = event or require("event")
