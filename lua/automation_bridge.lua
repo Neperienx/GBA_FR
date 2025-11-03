@@ -11,7 +11,124 @@ frame-long button presses or macros (a list of button presses with a
 fixed duration for each step).
 ]]
 
-local socket = require("socket")
+local ok_socket, socket = pcall(require, "socket")
+if not ok_socket or not socket then
+    local comm = rawget(_G, "comm")
+    if not comm then
+        error("LuaSocket module not found and BizHawk comm API unavailable. Please enable one of them.")
+    end
+
+    local function ensure(fn, name)
+        if not fn then
+            error("BizHawk comm API is missing `" .. name .. "`")
+        end
+        return fn
+    end
+
+    local socketServerOpen = ensure(comm.socketServerOpen, "socketServerOpen")
+    local socketServerClose = ensure(comm.socketServerClose, "socketServerClose")
+    local socketServerIsConnected = ensure(comm.socketServerIsConnected, "socketServerIsConnected")
+    local socketServerSend = ensure(comm.socketServerSend, "socketServerSend")
+    local socketServerPeek = ensure(comm.socketServerPeek, "socketServerPeek")
+    local socketServerReceive = comm.socketServerReceive
+
+    socket = {}
+
+    function socket.bind(host, port)
+        -- BizHawk listens on all interfaces, but this keeps the call signature consistent.
+        socketServerClose()
+        socketServerOpen(port)
+
+        local server = {
+            _client = nil,
+            _buffer = ""
+        }
+
+        function server:settimeout(_)
+            -- Non-blocking behaviour is implemented by returning "timeout" when
+            -- no data is available, matching LuaSocket semantics.
+        end
+
+        local function reopen()
+            socketServerClose()
+            socketServerOpen(port)
+            server._client = nil
+            server._buffer = ""
+        end
+
+        function server:accept()
+            if not socketServerIsConnected() then
+                if server._client then
+                    -- Client disconnected without us noticing; reset state so we
+                    -- can accept a new connection once it arrives.
+                    reopen()
+                end
+                return nil
+            end
+
+            if server._client then
+                return server._client
+            end
+
+            local client = {}
+
+            function client:settimeout(_)
+            end
+
+            function client:close()
+                reopen()
+            end
+
+            function client:send(payload)
+                local result = socketServerSend(payload)
+                if result == false then
+                    reopen()
+                    return nil, "closed"
+                end
+                return true
+            end
+
+            function client:receive(pattern)
+                if pattern ~= "*l" then
+                    error("BizHawk socket shim only supports receive pattern '*l'")
+                end
+
+                if not socketServerIsConnected() then
+                    reopen()
+                    return nil, "closed"
+                end
+
+                while true do
+                    local newline = server._buffer:find("\n", 1, true)
+                    if newline then
+                        local line = server._buffer:sub(1, newline - 1)
+                        server._buffer = server._buffer:sub(newline + 1)
+                        return line
+                    end
+
+                    local chunk = socketServerPeek()
+                    if socketServerReceive then
+                        local received = socketServerReceive()
+                        if received and #received > 0 then
+                            chunk = received
+                        end
+                    end
+
+                    if chunk and #chunk > 0 then
+                        server._buffer = server._buffer .. chunk
+                    else
+                        return nil, "timeout"
+                    end
+                end
+            end
+
+            server._client = client
+            return client
+        end
+
+        return server
+    end
+end
 local event = event or require("event")
 local joypad = joypad or joypad
 local memory = memory
