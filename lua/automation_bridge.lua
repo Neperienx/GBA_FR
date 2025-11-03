@@ -17,6 +17,29 @@ local joypad = joypad or joypad
 local memory = memory
 local emu = emu
 
+-- BizHawk uses a different joypad API signature (controller index first).
+-- We detect the signature at runtime so the script stays compatible with
+-- both mGBA and BizHawk without any manual changes.
+local JOYPAD_SET_NEEDS_PORT = false
+if joypad and joypad.set then
+    local ok = pcall(joypad.set, {})
+    if not ok then
+        JOYPAD_SET_NEEDS_PORT = true
+    end
+end
+
+-- BizHawk exposes memory domains; default to "System Bus" when available so
+-- absolute addresses can still be used.
+local MEMORY_DOMAIN = nil
+if memory and memory.getcurrentmemorydomain and memory.usememorydomain then
+    local current = memory.getcurrentmemorydomain()
+    if not current or current == "" then
+        pcall(memory.usememorydomain, "System Bus")
+        current = memory.getcurrentmemorydomain()
+    end
+    MEMORY_DOMAIN = current
+end
+
 local HOST = "127.0.0.1"
 local PORT = 8765
 
@@ -272,13 +295,49 @@ local WATCHERS = {
     { name = "enemy_species", address = 0x020240A8, size = 2, type = "u16" },
 }
 
+local function read_u8(address)
+    if memory.readbyte then
+        return memory.readbyte(address)
+    elseif memory.read_u8 then
+        if MEMORY_DOMAIN then
+            return memory.read_u8(address, MEMORY_DOMAIN)
+        end
+        return memory.read_u8(address)
+    end
+    error("Memory read (u8) not supported in this environment")
+end
+
+local function read_u16(address)
+    if memory.readword then
+        return memory.readword(address)
+    elseif memory.read_u16_le then
+        if MEMORY_DOMAIN then
+            return memory.read_u16_le(address, MEMORY_DOMAIN)
+        end
+        return memory.read_u16_le(address)
+    end
+    error("Memory read (u16) not supported in this environment")
+end
+
+local function read_u32(address)
+    if memory.readdword then
+        return memory.readdword(address)
+    elseif memory.read_u32_le then
+        if MEMORY_DOMAIN then
+            return memory.read_u32_le(address, MEMORY_DOMAIN)
+        end
+        return memory.read_u32_le(address)
+    end
+    error("Memory read (u32) not supported in this environment")
+end
+
 local function read_value(watcher)
     if watcher.size == 1 then
-        return memory.readbyte(watcher.address)
+        return read_u8(watcher.address)
     elseif watcher.size == 2 then
-        return memory.readword(watcher.address)
+        return read_u16(watcher.address)
     elseif watcher.size == 4 then
-        return memory.readdword(watcher.address)
+        return read_u32(watcher.address)
     else
         error("Unsupported watcher size: " .. tostring(watcher.size))
     end
@@ -344,7 +403,11 @@ local function set_input(buttons)
 end
 
 local function apply_input()
-    joypad.set(current_input)
+    if JOYPAD_SET_NEEDS_PORT then
+        joypad.set(1, current_input)
+    else
+        joypad.set(current_input)
+    end
 end
 
 local function start_macro(macro)
