@@ -67,35 +67,47 @@ environment when you are done working on the project.
    - The script opens a TCP server on `127.0.0.1:8765` and streams game state once per frame.
    - Make sure no firewall blocks the port.
 
-### 3. Configure the Bot Step by Step
+### 3. Configure the One-Click Launcher
 
-1. Review the default configuration in [`scripts/run_bot.py`](scripts/run_bot.py).
-2. Update the walking macros so they match the layout of your PokéCenter and hunting location.
-   - Each `MacroStep` defines how many frames to hold a set of buttons. For example, `MacroStep(duration=45, buttons=["UP"])`
-     holds the UP button for 45 frames.
-   - The `to_grass_macro` should walk from the PokéCenter doorway to the grass patch. The `to_center_macro` should trace the
-     route back for healing.
-3. Adjust additional options in `BotConfig` if necessary:
-   - `host` and `port` must match the values printed by the Lua script in the emulator.
-   - `encounter_log_path` controls where encounter logs are saved.
-   - `pp_threshold` and `pp_recovery_moves` decide when the bot should return to heal.
-4. (Optional) Create a custom script if you prefer a different automation flow. Import `BotConfig`, `MgbaBridge`, and
-   `ShinyHunterBot` from the `automation` package and follow the example in this README.
+The repository ships with [`config.example.toml`](config.example.toml). Copy it to `config.toml` and edit the values so they
+match your machine:
+
+```bash
+cp config.example.toml config.toml
+```
+
+Key sections inside the file:
+
+- `[bridge]` – host/port used by both the Lua script and the Python bot. Leave as `127.0.0.1:8765` unless you have a port
+  conflict.
+- `[emulator]` – points to your emulator executable, ROM, and destination folder for the Lua script. Set `enabled = false` if
+  you prefer launching the emulator manually. The launcher copies `lua/automation_bridge.lua` to the destination on every run
+  so BizHawk always executes the latest version.
+- `[bot]` – runtime behaviour of the automation bot.
+  - `log_path` controls where encounter logs are written.
+  - `pp_threshold` and `pp_recovery_moves` control when the bot returns to heal.
+  - `to_grass_macro` and `to_center_macro` describe the walking routes as ordered sequences of `duration` and `buttons` pairs.
+    Each duration is measured in frames, so `duration = 45` with `buttons = ["UP"]` holds UP for 45 frames.
 
 ### 4. Run the Automation Bot
 
 ```bash
-python scripts/run_bot.py --log logs/encounters.log
+python main.py
 ```
 
-The CLI creates a default configuration with placeholder macros for walking between the PokéCenter and the grass patch. Adjust
-the durations and button combinations in `scripts/run_bot.py` to match your setup. The script prints status messages while it is
-running so you can confirm that a connection to the emulator has been established.
+The launcher performs the following steps:
+
+1. Copies the Lua bridge script to the configured BizHawk directory (unless `copy_lua = false`).
+2. Starts the emulator with the correct socket arguments and ROM (skip this step with `--no-launch`).
+3. Connects to the Lua bridge, retrying until it becomes available, and starts the shiny hunting state machine.
+
+Use `python main.py --config custom_config.toml` if you store multiple setups, or `python main.py --no-launch` when the
+emulator is already running with the Lua script loaded.
 
 ### 5. Configure Movement Macros Programmatically
 
-Macros are sequences of button presses with a frame duration. You can customize them either by editing `scripts/run_bot.py` or
-instantiating `BotConfig` manually in a bespoke script. Example:
+Macros are sequences of button presses with a frame duration. You can customize them either by editing the `to_grass_macro`
+and `to_center_macro` blocks inside `config.toml` or by instantiating `BotConfig` manually in a bespoke script. Example:
 
 ```python
 from automation import BotConfig, MgbaBridge, ShinyHunterBot, EncounterLogger

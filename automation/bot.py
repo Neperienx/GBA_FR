@@ -21,12 +21,14 @@ class ShinyHunterBot:
     config: BotConfig
     logger: EncounterLogger
     poll_interval: float = 0.05
+    connect_timeout: float = 30.0
+    connect_retry_interval: float = 1.0
     mode: BotMode = BotMode.IDLE
     encounters_seen: int = 0
     _current_encounter: Optional[Encounter] = field(default=None, init=False)
 
     def start(self) -> None:
-        self.bridge.connect()
+        self._connect_with_retry()
         self.mode = BotMode.WALK_TO_GRASS
         try:
             while True:
@@ -39,6 +41,25 @@ class ShinyHunterBot:
             self.bridge.close()
 
     # ------------------------------------------------------------------
+
+    def _connect_with_retry(self) -> None:
+        """Attempt to connect to the Lua bridge, retrying on failure."""
+
+        deadline: Optional[float]
+        if self.connect_timeout and self.connect_timeout > 0:
+            deadline = time.monotonic() + self.connect_timeout
+        else:
+            deadline = None
+
+        while True:
+            try:
+                self.bridge.connect()
+                print("[bot] connected to Lua bridge")
+                return
+            except OSError as exc:
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError("timed out waiting for Lua bridge") from exc
+                time.sleep(max(self.connect_retry_interval, 0.1))
 
     def _step(self, state: GameState) -> None:
         if self.mode == BotMode.WALK_TO_GRASS:
