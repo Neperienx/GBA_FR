@@ -364,6 +364,30 @@ end
 local HOST = "127.0.0.1"
 local PORT = 8765
 
+local function getenv(name)
+    if not os or not os.getenv then
+        return nil
+    end
+    local ok, value = pcall(os.getenv, name)
+    if ok and value and #value > 0 then
+        return value
+    end
+    return nil
+end
+
+local env_host = getenv("GBA_BRIDGE_HOST")
+if env_host then
+    HOST = env_host
+end
+
+local env_port = getenv("GBA_BRIDGE_PORT")
+if env_port then
+    local parsed = tonumber(env_port, 10)
+    if parsed then
+        PORT = parsed
+    end
+end
+
 local function dbg(msg)
     if not msg then
         return

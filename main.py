@@ -17,7 +17,13 @@ except ModuleNotFoundError as exc:  # pragma: no cover - handled at runtime
         "Python 3.11 or newer is required (missing 'tomllib')."
     ) from exc
 
-from automation import BotConfig, EncounterLogger, MgbaBridge, ShinyHunterBot
+from automation import (
+    BotConfig,
+    BridgeMode,
+    EncounterLogger,
+    MgbaBridge,
+    ShinyHunterBot,
+)
 from automation.config import MacroStep
 
 
@@ -77,6 +83,8 @@ def load_config(path: Path) -> LauncherConfig:
     bridge_cfg = data.get("bridge", {})
     host = str(bridge_cfg.get("host", "127.0.0.1"))
     port = int(bridge_cfg.get("port", 8765))
+    mode_raw = str(bridge_cfg.get("mode", BridgeMode.PYTHON_CLIENT.value))
+    bridge_mode = BridgeMode.from_string(mode_raw)
 
     bot_cfg = data.get("bot", {})
     runtime = RuntimeConfig(
@@ -94,6 +102,7 @@ def load_config(path: Path) -> LauncherConfig:
     bot = BotConfig(
         host=host,
         port=port,
+        bridge_mode=bridge_mode,
         encounter_log_path=log_path,
         to_grass_macro=to_grass,
         to_center_macro=to_center,
@@ -173,7 +182,9 @@ def copy_lua_script(emulator: EmulatorConfig) -> None:
     print(f"[launcher] copied Lua script to {emulator.lua_destination}")
 
 
-def launch_emulator(emulator: EmulatorConfig, bot: BotConfig) -> Optional[subprocess.Popen[bytes]]:
+def launch_emulator(
+    emulator: EmulatorConfig, bot: BotConfig
+) -> Optional[subprocess.Popen[bytes]]:
     if not emulator.enabled:
         print("[launcher] emulator launch disabled by configuration")
         return None
@@ -186,11 +197,16 @@ def launch_emulator(emulator: EmulatorConfig, bot: BotConfig) -> Optional[subpro
     cmd: List[str] = [str(emulator.executable)]
     cmd.extend(str(arg) for arg in emulator.extra_args)
 
-    if emulator.apply_bridge_args:
+    if emulator.apply_bridge_args and bot.bridge_mode is BridgeMode.PYTHON_SERVER:
         cmd.extend((
             f"--socket_ip={bot.host}",
             f"--socket_port={bot.port}",
         ))
+    elif emulator.apply_bridge_args and bot.bridge_mode is not BridgeMode.PYTHON_SERVER:
+        print(
+            "[launcher] bridge.apply_bridge_args is true but bridge.mode does not require "
+            "emulator client arguments; skipping"
+        )
     if emulator.lua_destination:
         cmd.append(f"--lua={emulator.lua_destination}")
     if emulator.rom:
@@ -200,7 +216,15 @@ def launch_emulator(emulator: EmulatorConfig, bot: BotConfig) -> Optional[subpro
     for part in cmd:
         print(f"  {part}")
 
-    process = subprocess.Popen(cmd, cwd=str(emulator.working_directory) if emulator.working_directory else None)
+    env = os.environ.copy()
+    env.setdefault("GBA_BRIDGE_HOST", bot.host)
+    env.setdefault("GBA_BRIDGE_PORT", str(bot.port))
+
+    process = subprocess.Popen(
+        cmd,
+        cwd=str(emulator.working_directory) if emulator.working_directory else None,
+        env=env,
+    )
 
     if emulator.boot_wait_seconds > 0:
         print(f"[launcher] waiting {emulator.boot_wait_seconds:.1f}s for emulator boot")

@@ -6,10 +6,19 @@ import json
 import socket
 import threading
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Dict, Iterable, Optional
 
-from .config import BotConfig, MacroStep
+from .config import BotConfig, BridgeMode, MacroStep
 from .state import GameState
+
+
+class ConnectionState(Enum):
+    """Internal connection state."""
+
+    DISCONNECTED = "disconnected"
+    LISTENING = "listening"
+    CONNECTED = "connected"
 
 
 @dataclass
@@ -20,14 +29,56 @@ class MgbaBridge:
     _sock: Optional[socket.socket] = field(default=None, init=False)
     _reader: Optional[socket.SocketIO] = field(default=None, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
+    _server: Optional[socket.socket] = field(default=None, init=False)
+    _state: ConnectionState = field(default=ConnectionState.DISCONNECTED, init=False)
+
+    # ------------------------------------------------------------------
+    # Lifecycle --------------------------------------------------------
+    # ------------------------------------------------------------------
 
     def connect(self) -> None:
         if self._sock:
             return
+        if self.config.bridge_mode is BridgeMode.PYTHON_CLIENT:
+            self._connect_as_client()
+        else:
+            self._connect_as_server()
+
+    def _connect_as_client(self) -> None:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((self.config.host, self.config.port))
+        try:
+            sock.connect((self.config.host, self.config.port))
+        except OSError:
+            sock.close()
+            raise
         self._sock = sock
         self._reader = sock.makefile("r")
+        self._state = ConnectionState.CONNECTED
+
+    def _connect_as_server(self) -> None:
+        server = self._ensure_server()
+        try:
+            client, _ = server.accept()
+        except (BlockingIOError, InterruptedError) as exc:
+            raise OSError("bridge accept interrupted") from exc
+        except socket.timeout as exc:
+            raise OSError("bridge waiting for emulator connection") from exc
+        self._sock = client
+        self._reader = client.makefile("r")
+        self._state = ConnectionState.CONNECTED
+
+    def _ensure_server(self) -> socket.socket:
+        if self._server and self._state is not ConnectionState.DISCONNECTED:
+            return self._server
+        if not self._server:
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server.bind((self.config.host, self.config.port))
+            server.listen(1)
+            server.settimeout(1.0)
+            self._server = server
+        self._state = ConnectionState.LISTENING
+        return self._server
 
     def close(self) -> None:
         with self._lock:
@@ -44,9 +95,16 @@ class MgbaBridge:
                     pass
                 self._sock.close()
                 self._sock = None
+            if self._server:
+                try:
+                    self._server.close()
+                except OSError:
+                    pass
+                self._server = None
+            self._state = ConnectionState.DISCONNECTED
 
     # ------------------------------------------------------------------
-    # Command helpers
+    # Command helpers --------------------------------------------------
     # ------------------------------------------------------------------
 
     def send_buttons(self, buttons: Iterable[str]) -> None:
