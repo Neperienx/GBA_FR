@@ -79,7 +79,13 @@ cp config.example.toml config.toml
 Key sections inside the file:
 
 - `[bridge]` – host/port used by both the Lua script and the Python bot. Leave as `127.0.0.1:8765` unless you have a port
-  conflict.
+  conflict. The optional `mode` key selects which side opens the TCP server:
+  - `python_client` (default) – Lua hosts the server and the Python bot connects to it. Works out of the box with
+    `lua/automation_bridge.lua`, and the launcher passes the configured host/port through the `GBA_BRIDGE_HOST` /
+    `GBA_BRIDGE_PORT` environment variables so the Lua script binds to the expected endpoint.
+  - `python_server` – The Python launcher listens for the emulator to connect. Use this when starting BizHawk with
+    `--socket_ip/--socket_port` and pairing it with `lua/bizhawk_client_bridge.lua` or any setup where the emulator should act as
+    the TCP client.
 - `[emulator]` – points to your emulator executable, ROM, and destination folder for the Lua script. Set `enabled = false` if
   you prefer launching the emulator manually. The launcher copies `lua/automation_bridge.lua` to the destination on every run
   so BizHawk always executes the latest version.
@@ -98,7 +104,9 @@ python main.py
 The launcher performs the following steps:
 
 1. Copies the Lua bridge script to the configured BizHawk directory (unless `copy_lua = false`).
-2. Starts the emulator with the correct socket arguments and ROM (skip this step with `--no-launch`).
+2. Starts the emulator with the correct socket arguments and ROM (skip this step with `--no-launch`). When `bridge.mode` is
+   `python_client`, the launcher omits `--socket_ip/--socket_port` so BizHawk keeps listening for the Python bot instead of
+   trying to connect to a missing server.
 3. Connects to the Lua bridge, retrying until it becomes available, and starts the shiny hunting state machine.
 
 Use `python main.py --config custom_config.toml` if you store multiple setups, or `python main.py --no-launch` when the

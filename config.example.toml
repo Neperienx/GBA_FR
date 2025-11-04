@@ -3,6 +3,9 @@
 [bridge]
 host = "127.0.0.1"
 port = 8765
+# python_client  -> Lua hosts the TCP server (default, works with automation_bridge.lua)
+# python_server  -> Python hosts the server, emulator connects out (use with BizHawk client bridge)
+mode = "python_client"
 
 [emulator]
 enabled = true
