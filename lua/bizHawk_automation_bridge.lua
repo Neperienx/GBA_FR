@@ -16,11 +16,42 @@ if not comm then
     error("BizHawk comm API is unavailable; please enable Lua sockets in EmuHawk.")
 end
 
-local socket_start = comm.socketServerStart or comm.socketServerListen or comm.socketServerOpen
-local socket_stop = comm.socketServerStop or comm.socketServerClose
-local socket_connected = comm.socketServerIsConnected or comm.socketServerConnected
-local socket_response = comm.socketServerResponse or comm.socketServerPeek
-local socket_send = comm.socketServerSend or comm.socketServerSendText or comm.socketServerSendLine
+local function pick(...)
+    for i = 1, select('#', ...) do
+        local name = select(i, ...)
+        local fn = comm[name]
+        if fn then
+            return fn
+        end
+    end
+    return nil
+end
+
+local socket_start = pick(
+    "socketServerStart",
+    "socketServerListen",
+    "socketServerOpen"
+)
+local socket_stop = pick(
+    "socketServerStop",
+    "socketServerClose"
+)
+local socket_connected = pick(
+    "socketServerIsConnected",
+    "socketServerConnected"
+)
+local socket_response = pick(
+    "socketServerResponse",
+    "socketServerPeek",
+    "socketServerRead",
+    "socketServerReceive",
+    "socketServerRecv"
+)
+local socket_send = pick(
+    "socketServerSend",
+    "socketServerSendText",
+    "socketServerSendLine"
+)
 
 if not (socket_start and socket_stop and socket_connected and socket_response and socket_send) then
     error("BizHawk comm API is missing socket server helpers required by the bridge.")
