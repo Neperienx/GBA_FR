@@ -61,11 +61,17 @@ environment when you are done working on the project.
 
 ### 2. Prepare the Emulator
 
-1. Use the latest nightly build of [mGBA](https://mgba.io/) (or another emulator with Lua + socket support).
-2. Load your Pokémon Fire Red ROM (v1.0 is expected by the memory map).
-3. Open the Lua scripting console and run [`lua/automation_bridge.lua`](lua/automation_bridge.lua).
-   - The script opens a TCP server on `127.0.0.1:8765` and streams game state once per frame.
-   - Make sure no firewall blocks the port.
+Pick the option that matches your emulator:
+
+- **mGBA** – Use the latest nightly build of [mGBA](https://mgba.io/) (or another emulator with Lua + socket support).
+  Load your Pokémon Fire Red ROM (v1.0 is expected by the memory map) and run
+  [`lua/automation_bridge.lua`](lua/automation_bridge.lua) from the Lua console. The script opens a TCP server on
+  `127.0.0.1:8765` and streams game state once per frame.
+- **BizHawk** – Install [BizHawk](https://tasvideos.org/BizHawk) and point `config.toml` at your EmuHawk executable.
+  The launcher automatically copies [`lua/bizHawk_automation_bridge.lua`](lua/bizHawk_automation_bridge.lua) into BizHawk's Lua
+  folder before starting the emulator, so you always run the latest bridge. No manual script selection is required.
+
+In both cases, ensure the chosen port is not blocked by a firewall.
 
 ### 3. Configure the One-Click Launcher
 
@@ -80,15 +86,15 @@ Key sections inside the file:
 
 - `[bridge]` – host/port used by both the Lua script and the Python bot. Leave as `127.0.0.1:8765` unless you have a port
   conflict. The optional `mode` key selects which side opens the TCP server:
-  - `python_client` (default) – Lua hosts the server and the Python bot connects to it. Works out of the box with
-    `lua/automation_bridge.lua`, and the launcher passes the configured host/port through the `GBA_BRIDGE_HOST` /
+  - `python_client` (default) – Lua hosts the server and the Python bot connects to it. Works out of the box with both the
+    mGBA and BizHawk bridge scripts, and the launcher passes the configured host/port through the `GBA_BRIDGE_HOST` /
     `GBA_BRIDGE_PORT` environment variables so the Lua script binds to the expected endpoint.
-  - `python_server` – The Python launcher listens for the emulator to connect. Use this when starting BizHawk with
-    `--socket_ip/--socket_port` and pairing it with `lua/bizhawk_client_bridge.lua` or any setup where the emulator should act as
-    the TCP client.
+  - `python_server` – The Python launcher listens for the emulator to connect. Use this only for advanced setups where the
+    emulator must act as the TCP client.
 - `[emulator]` – points to your emulator executable, ROM, and destination folder for the Lua script. Set `enabled = false` if
-  you prefer launching the emulator manually. The launcher copies `lua/automation_bridge.lua` to the destination on every run
-  so BizHawk always executes the latest version.
+  you prefer launching the emulator manually. The launcher copies the configured Lua bridge (mGBA or BizHawk) to the destination
+  on every run so the emulator always executes the latest version. When `lua_source` is omitted, the launcher auto-selects the
+  correct script based on `profile = "bizhawk"` or by detecting an `EmuHawk` executable path.
 - `[bot]` – runtime behaviour of the automation bot.
   - `log_path` controls where encounter logs are written.
   - `pp_threshold` and `pp_recovery_moves` control when the bot returns to heal.

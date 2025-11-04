@@ -35,6 +35,7 @@ class EmulatorConfig:
     """Configuration describing how to launch the emulator."""
 
     enabled: bool = True
+    profile: Optional[str] = None
     executable: Optional[Path] = None
     rom: Optional[Path] = None
     lua_source: Optional[Path] = None
@@ -121,9 +122,17 @@ def _parse_emulator_config(raw: dict, base_dir: Path) -> EmulatorConfig:
         return emulator
 
     emulator.enabled = bool(raw.get("enabled", True))
+    emulator.profile = str(raw.get("profile")) if raw.get("profile") is not None else None
     emulator.executable = _resolve_path(base_dir, raw.get("path"))
     emulator.rom = _resolve_path(base_dir, raw.get("rom"))
-    lua_source = raw.get("lua_source", "lua/automation_bridge.lua")
+    lua_source = raw.get("lua_source")
+    if not lua_source:
+        profile = (emulator.profile or "").lower()
+        executable_name = emulator.executable.name.lower() if emulator.executable else ""
+        if "bizhawk" in profile or "emuhawk" in executable_name:
+            lua_source = "lua/bizHawk_automation_bridge.lua"
+        else:
+            lua_source = "lua/automation_bridge.lua"
     emulator.lua_source = _resolve_path(base_dir, lua_source) if lua_source else None
     emulator.lua_destination = _resolve_path(base_dir, raw.get("lua_destination"))
     emulator.working_directory = _resolve_path(base_dir, raw.get("working_directory"))
