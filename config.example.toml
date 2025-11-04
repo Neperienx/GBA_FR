@@ -3,15 +3,16 @@
 [bridge]
 host = "127.0.0.1"
 port = 8765
-# python_client  -> Lua hosts the TCP server (default, works with automation_bridge.lua)
-# python_server  -> Python hosts the server, emulator connects out (use with BizHawk client bridge)
+# python_client  -> Lua hosts the TCP server (default, works with mGBA & BizHawk bridges)
+# python_server  -> Python hosts the server, emulator connects out (advanced setups only)
 mode = "python_client"
 
 [emulator]
 enabled = true
+profile = "bizhawk"  # optional hint to auto-pick the BizHawk Lua bridge
 path = "C:\\BizHawk\\EmuHawk.exe"
 rom = "C:\\Bizhawk\\GBA\\SaveRAM\\Pokemon - Version Rouge Feu (France).gba"
-lua_source = "lua/automation_bridge.lua"
+lua_source = "lua/bizHawk_automation_bridge.lua"
 lua_destination = "C:\\BizHawk\\Lua\\automation_bridge.lua"
 working_directory = "C:\\BizHawk"
 extra_args = ["--gdi"]
