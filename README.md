@@ -20,7 +20,7 @@ Features will have to include:
 3. Run the automation launcher:
 
    ```bash
-   python main.py --emulator "C:\\Path\\To\\BizHawk\\EmuHawk.exe" --wait
+   python main.py --emulator "C:\\BizHawk\\EmuHawk.exe" --wait
    ```
 
    The `--wait` flag keeps the Python process alive until BizHawk exits.
