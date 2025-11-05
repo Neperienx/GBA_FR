@@ -4,19 +4,20 @@
     the title screen and initial menus until the game begins.
 --]]
 
-local INPUT_PORT = 1
+local BUTTON_A = "P1 A"
+
 local HOLD_FRAMES = 2
 local RELEASE_FRAMES = 30
 local FINAL_WAIT_FRAMES = 180
 local PRESS_COUNT = 6
 
 local function press_a()
-    joypad.set(INPUT_PORT, {A = true})
+    joypad.set({[BUTTON_A] = true})
     for _ = 1, HOLD_FRAMES do
         emu.frameadvance()
     end
 
-    joypad.set(INPUT_PORT, {})
+    joypad.set({[BUTTON_A] = false})
     for _ = 1, RELEASE_FRAMES do
         emu.frameadvance()
     end
