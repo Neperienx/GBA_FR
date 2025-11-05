@@ -38,6 +38,24 @@ local FINAL_WAIT_FRAMES = 3 * FRAMES_PER_SECOND
 local LOG_VERBOSE = true
 -- ^ If true, prints per-press logs to Output; set false to reduce spam
 
+-- Memory inspection configuration (GBA addresses live in the EWRAM domain)
+local MEM_DOMAIN = "EWRAM"
+
+-- Known FireRed addresses pulled from community documentation / reverse engineering
+local ADDR_MAP_GROUP = 0x02036DFC
+local ADDR_MAP_NUMBER = 0x02036DFE
+local ADDR_PLAYER_X = 0x02036E38
+local ADDR_PLAYER_Y = 0x02036E3A
+local ADDR_PLAYER_FACING = 0x02036E32
+local ADDR_PLAYER_TILE_BEHAVIOR = 0x02037079
+
+local GRASS_BEHAVIORS = {
+  [0x03] = "Tall grass",
+  [0x04] = "Long grass",
+  [0x52] = "Long grass (alt)",
+  [0x5A] = "Very tall grass",
+}
+
 
 ---------------------------------------
 -- INTERNAL HELPERS (no need to edit)
@@ -46,6 +64,69 @@ local LOG_VERBOSE = true
 local function log(fmt, ...)
   if LOG_VERBOSE then
     console.log(string.format(fmt, ...))
+  end
+end
+
+local function read_u8(addr)
+  memory.usememorydomain(MEM_DOMAIN)
+  return memory.read_u8(addr)
+end
+
+local function read_u16(addr)
+  memory.usememorydomain(MEM_DOMAIN)
+  return memory.read_u16_le(addr)
+end
+
+local function decode_grass_behavior(behavior)
+  return GRASS_BEHAVIORS[behavior]
+end
+
+local function capture_game_state()
+  local map_group = read_u8(ADDR_MAP_GROUP)
+  local map_number = read_u8(ADDR_MAP_NUMBER)
+  local x = read_u16(ADDR_PLAYER_X)
+  local y = read_u16(ADDR_PLAYER_Y)
+  local facing = read_u8(ADDR_PLAYER_FACING)
+  local tile_behavior = read_u8(ADDR_PLAYER_TILE_BEHAVIOR)
+
+  local grass_descriptor = decode_grass_behavior(tile_behavior)
+  local in_grass = grass_descriptor ~= nil
+
+  return {
+    map_group = map_group,
+    map_number = map_number,
+    x = x,
+    y = y,
+    facing = facing,
+    tile_behavior = tile_behavior,
+    grass_descriptor = grass_descriptor,
+    in_grass = in_grass,
+  }
+end
+
+local function log_game_state()
+  local state = capture_game_state()
+
+  console.log(string.format(
+    "[start_game] Map group=%d, map number=%d, coords=(%d,%d), facing=0x%02X",
+    state.map_group,
+    state.map_number,
+    state.x,
+    state.y,
+    state.facing
+  ))
+
+  if state.in_grass then
+    console.log(string.format(
+      "[start_game] Player is in grass: behavior=0x%02X (%s)",
+      state.tile_behavior,
+      state.grass_descriptor
+    ))
+  else
+    console.log(string.format(
+      "[start_game] Player is not in recognized grass (behavior=0x%02X)",
+      state.tile_behavior
+    ))
   end
 end
 
@@ -105,6 +186,9 @@ log("[start_game] Final wait: %d frames", FINAL_WAIT_FRAMES)
 for i = 1, FINAL_WAIT_FRAMES do
   emu.frameadvance()
 end
+
+-- Inspect the overworld state after the intro skip completes
+log_game_state()
 
 -- Pause again so you can inspect the result
 client.pause()
