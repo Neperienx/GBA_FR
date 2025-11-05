@@ -12,6 +12,31 @@ Features will have to include:
 7. if out of pp we have to go back to the nearest pokecenter and heal.
 8. repeat by walking back to grass
 
+## Roadmap for full automation
+
+The long-term loop (encounter → evaluate → recover → return) breaks down into the following
+building blocks:
+
+1. **Reliable game-state tracking**
+   * Read overworld context from memory (map group/number, player position, tile behavior).
+   * Detect party composition, PP counts, and Poké Center location for the current route.
+   * Monitor encounter/battle state changes (wild encounter flag, active battle menu, etc.).
+2. **Encounter loop orchestration**
+   * Navigate between safe tiles and tall grass patches while tracking step count.
+   * Trigger encounters and enter the battle flow state machine.
+3. **Battle resolution logic**
+   * Perform a shiny check before any action; pause and alert when a shiny is found.
+   * Implement scripted move selection with PP safety checks and configurable flee/attack rules.
+   * Detect end-of-battle transitions (victory, faint, or forced exit).
+4. **Resource management**
+   * Continuously evaluate PP / HP / item thresholds.
+   * Path back to the nearest Poké Center when thresholds are crossed, then heal and restock.
+   * Return to the designated grass tile and resume the encounter loop.
+
+The `start_game.lua` script now emits a snapshot of the overworld state after the intro skip to
+bootstrap the first bullet point. Subsequent scripts can reuse the logged addresses to build richer
+state machines.
+
 ## Quick start
 
 1. Install [BizHawk](https://tasvideos.org/BizHawk) and note the path to `EmuHawk.exe`.
