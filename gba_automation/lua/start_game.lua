@@ -40,6 +40,7 @@ local LOG_VERBOSE = true
 
 -- Memory inspection configuration (GBA addresses live in the EWRAM domain)
 local MEM_DOMAIN = "EWRAM"
+local EWRAM_BASE = 0x02000000
 
 -- Known FireRed addresses pulled from community documentation / reverse engineering
 local ADDR_MAP_GROUP = 0x02036DFC
@@ -67,14 +68,26 @@ local function log(fmt, ...)
   end
 end
 
+local function ewram_offset(addr)
+  local offset = addr - EWRAM_BASE
+  if offset < 0 or offset > 0x3FFFF then
+    error(string.format(
+      "Address 0x%08X is outside the EWRAM range when converted to an offset (got 0x%X)",
+      addr,
+      offset
+    ))
+  end
+  return offset
+end
+
 local function read_u8(addr)
   memory.usememorydomain(MEM_DOMAIN)
-  return memory.read_u8(addr)
+  return memory.read_u8(ewram_offset(addr))
 end
 
 local function read_u16(addr)
   memory.usememorydomain(MEM_DOMAIN)
-  return memory.read_u16_le(addr)
+  return memory.read_u16_le(ewram_offset(addr))
 end
 
 local function decode_grass_behavior(behavior)
