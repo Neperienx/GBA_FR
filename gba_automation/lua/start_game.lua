@@ -13,15 +13,29 @@ local RELEASE_FRAMES = 30
 local FINAL_WAIT_FRAMES = 180
 local PRESS_COUNT = 6
 
+local function log_button_state(phase)
+    local state = joypad.get()[BUTTON_A]
+    console.log(string.format(
+        "[start_game] %s at frame %d (A=%s)",
+        phase,
+        emu.framecount(),
+        tostring(state)
+    ))
+end
+
 local function press_a()
-    joypad.set({[BUTTON_A] = true})
-    for _ = 1, HOLD_FRAMES do
+    console.log("[start_game] Holding A down")
+    for frame = 1, HOLD_FRAMES do
+        joypad.set({[BUTTON_A] = true})
         emu.frameadvance()
+        log_button_state(string.format("Hold frame %d/%d", frame, HOLD_FRAMES))
     end
 
-    joypad.set({[BUTTON_A] = false})
-    for _ = 1, RELEASE_FRAMES do
+    console.log("[start_game] Releasing A")
+    for frame = 1, RELEASE_FRAMES do
+        joypad.set({[BUTTON_A] = false})
         emu.frameadvance()
+        log_button_state(string.format("Release frame %d/%d", frame, RELEASE_FRAMES))
     end
 end
 
@@ -30,8 +44,13 @@ for _ = 1, INITIAL_WAIT_FRAMES do
     emu.frameadvance()
 end
 
-console.log("[start_game] Beginning automated start sequence")
+console.log(string.format(
+    "[start_game] Beginning automated start sequence (isPaused=%s, frame=%d)",
+    tostring(client.ispaused()),
+    emu.framecount()
+))
 client.unpause()
+log_button_state("Post-unpause state")
 
 for i = 1, PRESS_COUNT do
     console.log(string.format("[start_game] Pressing A (%d/%d)", i, PRESS_COUNT))
@@ -43,5 +62,10 @@ for _ = 1, FINAL_WAIT_FRAMES do
     emu.frameadvance()
 end
 
-console.log("[start_game] Startup sequence complete")
 client.pause()
+console.log(string.format(
+    "[start_game] Startup sequence complete (isPaused=%s, frame=%d)",
+    tostring(client.ispaused()),
+    emu.framecount()
+))
+log_button_state("Final state")
