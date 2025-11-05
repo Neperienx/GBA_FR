@@ -6,6 +6,8 @@
 
 local BUTTON_A = "P1 A"
 
+local FRAMES_PER_SECOND = 60
+local INITIAL_WAIT_FRAMES = 5 * FRAMES_PER_SECOND
 local HOLD_FRAMES = 2
 local RELEASE_FRAMES = 30
 local FINAL_WAIT_FRAMES = 180
@@ -21,6 +23,11 @@ local function press_a()
     for _ = 1, RELEASE_FRAMES do
         emu.frameadvance()
     end
+end
+
+console.log("[start_game] Waiting for the game to finish initial loading")
+for _ = 1, INITIAL_WAIT_FRAMES do
+    emu.frameadvance()
 end
 
 console.log("[start_game] Beginning automated start sequence")
