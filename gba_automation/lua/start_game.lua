@@ -1,0 +1,39 @@
+--[[
+    Entry point script that advances the Pokémon Fire Red startup flow.
+    The script repeatedly presses the "A" button with pauses to navigate
+    the title screen and initial menus until the game begins.
+--]]
+
+local INPUT_PORT = 1
+local HOLD_FRAMES = 2
+local RELEASE_FRAMES = 30
+local FINAL_WAIT_FRAMES = 180
+local PRESS_COUNT = 6
+
+local function press_a()
+    joypad.set(INPUT_PORT, {A = true})
+    for _ = 1, HOLD_FRAMES do
+        emu.frameadvance()
+    end
+
+    joypad.set(INPUT_PORT, {})
+    for _ = 1, RELEASE_FRAMES do
+        emu.frameadvance()
+    end
+end
+
+console.log("[start_game] Beginning automated start sequence")
+client.unpause()
+
+for i = 1, PRESS_COUNT do
+    console.log(string.format("[start_game] Pressing A (%d/%d)", i, PRESS_COUNT))
+    press_a()
+end
+
+console.log("[start_game] Final wait for the game intro to finish")
+for _ = 1, FINAL_WAIT_FRAMES do
+    emu.frameadvance()
+end
+
+console.log("[start_game] Startup sequence complete")
+client.pause()
