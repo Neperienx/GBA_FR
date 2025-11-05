@@ -11,12 +11,12 @@ local FINAL_WAIT_FRAMES = 180
 local PRESS_COUNT = 6
 
 local function press_a()
-    joypad.set({A = true}, INPUT_PORT)
+    joypad.set(INPUT_PORT, {A = true})
     for _ = 1, HOLD_FRAMES do
         emu.frameadvance()
     end
 
-    joypad.set({}, INPUT_PORT)
+    joypad.set(INPUT_PORT, {})
     for _ = 1, RELEASE_FRAMES do
         emu.frameadvance()
     end
