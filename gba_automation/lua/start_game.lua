@@ -4,7 +4,8 @@
     the title screen and initial menus until the game begins.
 --]]
 
-local BUTTON_A = "P1 A"
+local CONTROLLER_INDEX = 1
+local BUTTON_A = "A"
 
 local FRAMES_PER_SECOND = 60
 local INITIAL_WAIT_FRAMES = 5 * FRAMES_PER_SECOND
@@ -14,7 +15,7 @@ local FINAL_WAIT_FRAMES = 180
 local PRESS_COUNT = 6
 
 local function log_button_state(phase)
-    local state = joypad.get()[BUTTON_A]
+    local state = joypad.get(CONTROLLER_INDEX)[BUTTON_A]
     console.log(string.format(
         "[start_game] %s at frame %d (A=%s)",
         phase,
@@ -26,14 +27,14 @@ end
 local function press_a()
     console.log("[start_game] Holding A down")
     for frame = 1, HOLD_FRAMES do
-        joypad.set({[BUTTON_A] = true})
+        joypad.set({[BUTTON_A] = true}, CONTROLLER_INDEX)
         emu.frameadvance()
         log_button_state(string.format("Hold frame %d/%d", frame, HOLD_FRAMES))
     end
 
     console.log("[start_game] Releasing A")
     for frame = 1, RELEASE_FRAMES do
-        joypad.set({[BUTTON_A] = false})
+        joypad.set({[BUTTON_A] = false}, CONTROLLER_INDEX)
         emu.frameadvance()
         log_button_state(string.format("Release frame %d/%d", frame, RELEASE_FRAMES))
     end
