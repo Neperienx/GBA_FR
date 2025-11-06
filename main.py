@@ -11,6 +11,7 @@ from gba_automation import AppConfig
 from gba_automation.emulator import MGbaLauncher
 from gba_automation.scripts import LuaScriptRegistry
 
+_DEFAULT_EMULATOR_PATH = r"C:\\Program Files\\mGBA\\mGBA.exe"
 _DEFAULT_ROM_PATH = r"C:\\Users\\nicol\\Documents\\GB_Emulator\\Rouge Feu\\Pokemon - Version Rouge Feu (France).gba"
 
 
@@ -25,7 +26,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
     """Create the CLI argument parser."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--emulator", help="Path to the mGBA executable.")
+    parser.add_argument(
+        "--emulator",
+        help="Path to the mGBA executable.",
+        default=_DEFAULT_EMULATOR_PATH,
+    )
     parser.add_argument(
         "--rom",
         help="Path to the Pokémon Fire Red ROM. Defaults to the user's mGBA library location.",
