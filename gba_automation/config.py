@@ -28,6 +28,7 @@ class AppConfig:
         rom_path: Optional[str] = None,
         lua_script: Optional[str] = None,
         project_root: Optional[Path] = None,
+        emulator_description: str = "emulator",
     ) -> "AppConfig":
         """Build a configuration object from CLI args and environment defaults.
 
@@ -36,6 +37,7 @@ class AppConfig:
             rom_path: Optional explicit path to the Pokémon Fire Red ROM.
             lua_script: Optional explicit path to the Lua automation entry point.
             project_root: Optional root directory used for resolving relative paths.
+            emulator_description: Human readable label describing the emulator type.
 
         Returns:
             A fully resolved :class:`AppConfig` instance.
@@ -46,7 +48,7 @@ class AppConfig:
         emulator = _resolve_path(
             emulator_path,
             env_var=_ENV_EMULATOR_PATH,
-            description="mGBA emulator",
+            description=f"{emulator_description} executable",
         )
         rom = _resolve_path(
             rom_path,
