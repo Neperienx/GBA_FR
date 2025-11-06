@@ -36,7 +36,7 @@ class MGbaLauncher:
             A list of command tokens ready for subprocess execution.
         """
 
-        command = [str(self.executable_path), str(rom_path), "--lua-script", str(lua_script)]
+        command = [str(self.executable_path), "--lua-script", str(lua_script), str(rom_path)]
         if extra_args:
             command.extend(extra_args)
         return command
