@@ -4,15 +4,47 @@ from __future__ import annotations
 
 import argparse
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
 from gba_automation import AppConfig
-from gba_automation.emulator import MGbaLauncher
+from gba_automation.emulator import BizHawkLauncher, MGbaLauncher
 from gba_automation.scripts import LuaScriptRegistry
 
-_DEFAULT_EMULATOR_PATH = r"C:\\Program Files\\mGBA\\mGBA.exe"
+_DEFAULT_MGBA_PATH = r"C:\\Program Files\\mGBA\\mGBA.exe"
+_DEFAULT_BIZHAWK_PATH = r"C:\\Program Files\\BizHawk\\EmuHawk.exe"
 _DEFAULT_ROM_PATH = r"C:\\Users\\nicol\\Documents\\GB_Emulator\\Rouge Feu\\Pokemon - Version Rouge Feu (France).gba"
+
+
+class EmulatorKind(str, Enum):
+    """Enumerates the supported emulator integrations."""
+
+    BIZHAWK = "bizhawk"
+    MGBA = "mgba"
+
+    @property
+    def default_path(self) -> str:
+        """Return the OS-level default executable location for the emulator."""
+
+        if self is EmulatorKind.BIZHAWK:
+            return _DEFAULT_BIZHAWK_PATH
+        return _DEFAULT_MGBA_PATH
+
+    @property
+    def description(self) -> str:
+        """Provide a human-readable name for logging and error messages."""
+
+        if self is EmulatorKind.BIZHAWK:
+            return "BizHawk emulator"
+        return "mGBA emulator"
+
+    def create_launcher(self, executable_path: Path) -> "MGbaLauncher | BizHawkLauncher":
+        """Instantiate the launcher associated with the emulator kind."""
+
+        if self is EmulatorKind.BIZHAWK:
+            return BizHawkLauncher(executable_path=executable_path)
+        return MGbaLauncher(executable_path=executable_path)
 
 
 def configure_logging(verbose: bool) -> None:
@@ -27,9 +59,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--emulator-type",
+        choices=[kind.value for kind in EmulatorKind],
+        default=EmulatorKind.BIZHAWK.value,
+        help="Which emulator integration to use (determines defaults and launch syntax).",
+    )
+    parser.add_argument(
         "--emulator",
-        help="Path to the mGBA executable.",
-        default=_DEFAULT_EMULATOR_PATH,
+        help="Path to the emulator executable. Defaults depend on --emulator-type.",
+        default=None,
     )
     parser.add_argument(
         "--rom",
@@ -46,7 +84,13 @@ def build_argument_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def resolve_configuration(args: argparse.Namespace, project_root: Path) -> tuple[AppConfig, Path]:
+def resolve_configuration(
+    args: argparse.Namespace,
+    project_root: Path,
+    *,
+    emulator_kind: EmulatorKind,
+    emulator_path: str,
+) -> AppConfig:
     """Resolve all runtime configuration details from CLI arguments."""
 
     registry = LuaScriptRegistry(base_directory=project_root / "gba_automation" / "lua")
@@ -56,12 +100,13 @@ def resolve_configuration(args: argparse.Namespace, project_root: Path) -> tuple
     script = registry.get(script_name)
 
     config = AppConfig.from_sources(
-        emulator_path=args.emulator,
+        emulator_path=emulator_path,
         rom_path=args.rom,
         lua_script=str(script.path),
         project_root=project_root,
+        emulator_description=emulator_kind.description,
     )
-    return config, script.path
+    return config
 
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -73,14 +118,22 @@ def main(argv: Optional[list[str]] = None) -> int:
     configure_logging(verbose=args.verbose)
     project_root = Path(__file__).resolve().parent
 
+    emulator_kind = EmulatorKind(args.emulator_type)
+    emulator_path = args.emulator or emulator_kind.default_path
+
     try:
-        config, script_path = resolve_configuration(args, project_root)
+        config = resolve_configuration(
+            args,
+            project_root,
+            emulator_kind=emulator_kind,
+            emulator_path=emulator_path,
+        )
     except FileNotFoundError as error:
         logging.getLogger(__name__).error("Configuration error: %s", error)
         return 1
 
-    launcher = MGbaLauncher(executable_path=config.emulator_path)
-    launcher.launch(rom_path=config.rom_path, lua_script=script_path, wait=args.wait)
+    launcher = emulator_kind.create_launcher(config.emulator_path)
+    launcher.launch(rom_path=config.rom_path, lua_script=config.lua_script, wait=args.wait)
 
     return 0
 
