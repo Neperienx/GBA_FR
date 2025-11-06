@@ -39,28 +39,40 @@ state machines.
 
 ## Quick start
 
-1. Install [BizHawk](https://tasvideos.org/BizHawk) and note the path to `EmuHawk.exe`.
-2. Ensure the Pokémon Fire Red (French) ROM is available locally. By default the launcher uses:<br>
-   `C:\Bizhawk\GBA\SaveRAM\Pokemon - Version Rouge Feu (France).gba`
-3. Point the tooling at your mGBA executable. You can either:
+1. Install [mGBA](https://mgba.io) and note the path to `mGBA.exe`. By default the launcher uses:<br>
+   `C:\Program Files\mGBA\mGBA.exe`
+2. Ensure the Pokémon Fire Red (French) ROM is available locally. The default configuration expects:<br>
+   `C:\Users\nicol\Documents\GB_Emulator\Rouge Feu\Pokemon - Version Rouge Feu (France).gba`
+3. Launch the tooling. You can either rely on the defaults or provide explicit overrides:
 
-   * pass the path on the command line each time:
-
-     ```bash
-     python main.py --emulator "C:\\BizHawk\\EmuHawk.exe" --wait
-     ```
-
-   * or set the `GBA_AUTOMATION_EMULATOR` environment variable once in your shell profile
-     so the launcher can discover it automatically:
+   * to use the defaults, simply run:
 
      ```bash
-     setx GBA_AUTOMATION_EMULATOR "C:\\BizHawk\\EmuHawk.exe"   # Windows PowerShell / CMD
-     export GBA_AUTOMATION_EMULATOR="/Applications/mGBA.app/Contents/MacOS/mGBA"  # macOS/Linux
      python main.py --wait
      ```
 
-   The `--wait` flag keeps the Python process alive until BizHawk exits. If neither the command
-   line flag nor the environment variable is provided you will see the
+   * to point at a different installation, pass the relevant paths on the command line:
+
+     ```bash
+     python main.py \
+       --emulator "D:\\Games\\mGBA\\mGBA.exe" \
+       --rom "D:\\Roms\\Pokemon - Version Rouge Feu (France).gba" \
+       --wait
+     ```
+
+   * or set the environment variables once in your shell profile so the launcher can discover
+     them automatically:
+
+     ```bash
+     setx GBA_AUTOMATION_EMULATOR "C:\\Program Files\\mGBA\\mGBA.exe"   # Windows PowerShell / CMD
+     setx GBA_AUTOMATION_ROM "C:\\Users\\nicol\\Documents\\GB_Emulator\\Rouge Feu\\Pokemon - Version Rouge Feu (France).gba"
+     export GBA_AUTOMATION_EMULATOR="/Applications/mGBA.app/Contents/MacOS/mGBA"  # macOS/Linux
+     export GBA_AUTOMATION_ROM="/path/to/rom/Pokemon - Version Rouge Feu (France).gba"
+     python main.py --wait
+     ```
+
+   The `--wait` flag keeps the Python process alive until mGBA exits. If neither the command line
+   flag nor the environment variable is provided you will see the
    `Configuration error: No path configured for the mGBA emulator` message at startup.
 
 4. The default Lua script (`gba_automation/lua/start_game.lua`) repeatedly presses `A` to advance the
