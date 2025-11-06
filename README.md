@@ -42,13 +42,26 @@ state machines.
 1. Install [BizHawk](https://tasvideos.org/BizHawk) and note the path to `EmuHawk.exe`.
 2. Ensure the Pokémon Fire Red (French) ROM is available locally. By default the launcher uses:<br>
    `C:\Bizhawk\GBA\SaveRAM\Pokemon - Version Rouge Feu (France).gba`
-3. Run the automation launcher:
+3. Point the tooling at your mGBA executable. You can either:
 
-   ```bash
-   python main.py --emulator "C:\\BizHawk\\EmuHawk.exe" --wait
-   ```
+   * pass the path on the command line each time:
 
-   The `--wait` flag keeps the Python process alive until BizHawk exits.
+     ```bash
+     python main.py --emulator "C:\\BizHawk\\EmuHawk.exe" --wait
+     ```
+
+   * or set the `GBA_AUTOMATION_EMULATOR` environment variable once in your shell profile
+     so the launcher can discover it automatically:
+
+     ```bash
+     setx GBA_AUTOMATION_EMULATOR "C:\\BizHawk\\EmuHawk.exe"   # Windows PowerShell / CMD
+     export GBA_AUTOMATION_EMULATOR="/Applications/mGBA.app/Contents/MacOS/mGBA"  # macOS/Linux
+     python main.py --wait
+     ```
+
+   The `--wait` flag keeps the Python process alive until BizHawk exits. If neither the command
+   line flag nor the environment variable is provided you will see the
+   `Configuration error: No path configured for the mGBA emulator` message at startup.
 
 4. The default Lua script (`gba_automation/lua/start_game.lua`) repeatedly presses `A` to advance the
    intro screens until the game starts. Additional scripts can be added to `gba_automation/lua/` and
