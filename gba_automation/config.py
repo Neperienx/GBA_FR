@@ -32,7 +32,7 @@ class AppConfig:
         """Build a configuration object from CLI args and environment defaults.
 
         Args:
-            emulator_path: Optional explicit path to the BizHawk executable.
+            emulator_path: Optional explicit path to the emulator executable.
             rom_path: Optional explicit path to the Pokémon Fire Red ROM.
             lua_script: Optional explicit path to the Lua automation entry point.
             project_root: Optional root directory used for resolving relative paths.
@@ -46,7 +46,7 @@ class AppConfig:
         emulator = _resolve_path(
             emulator_path,
             env_var=_ENV_EMULATOR_PATH,
-            description="BizHawk emulator",
+            description="mGBA emulator",
         )
         rom = _resolve_path(
             rom_path,
