@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import Optional
 
 from gba_automation import AppConfig
-from gba_automation.emulator import BizHawkLauncher
+from gba_automation.emulator import MGbaLauncher
 from gba_automation.scripts import LuaScriptRegistry
 
-_DEFAULT_ROM_PATH = r"C:\\Bizhawk\\GBA\\SaveRAM\\Pokemon - Version Rouge Feu (France).gba"
+_DEFAULT_ROM_PATH = r"C:\\Users\\nicol\\Documents\\GB_Emulator\\Rouge Feu\\Pokemon - Version Rouge Feu (France).gba"
 
 
 def configure_logging(verbose: bool) -> None:
@@ -25,10 +25,10 @@ def build_argument_parser() -> argparse.ArgumentParser:
     """Create the CLI argument parser."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--emulator", help="Path to BizHawk's EmuHawk executable.")
+    parser.add_argument("--emulator", help="Path to the mGBA executable.")
     parser.add_argument(
         "--rom",
-        help="Path to the Pokémon Fire Red ROM. Defaults to the user's BizHawk installation directory.",
+        help="Path to the Pokémon Fire Red ROM. Defaults to the user's mGBA library location.",
         default=_DEFAULT_ROM_PATH,
     )
     parser.add_argument(
@@ -74,7 +74,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         logging.getLogger(__name__).error("Configuration error: %s", error)
         return 1
 
-    launcher = BizHawkLauncher(executable_path=config.emulator_path)
+    launcher = MGbaLauncher(executable_path=config.emulator_path)
     launcher.launch(rom_path=config.rom_path, lua_script=script_path, wait=args.wait)
 
     return 0
