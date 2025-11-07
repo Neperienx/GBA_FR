@@ -54,10 +54,7 @@ state machines.
    * to point at a different installation, pass the relevant paths on the command line:
 
      ```bash
-     python main.py \
-       --emulator "D:\\Games\\mGBA\\mGBA.exe" \
-       --rom "D:\\Roms\\Pokemon - Version Rouge Feu (France).gba" \
-       --wait
+     python main.py --emulator "C:\Program Files\mGBA\mGBA.exe" --rom "C:\Users\nicol\Documents\GB_Emulator\Rouge Feu\Pokemon - Version Rouge Feu (France).gba" --wait
      ```
 
    * or set the environment variables once in your shell profile so the launcher can discover
